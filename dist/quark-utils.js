@@ -85,156 +85,6 @@ ko.bindingHandlers.block = {
     }
 }
 
-// Returns the css for the blocker overlay
-function getBlockerCss(warning) {
-    // Default error is with danger style
-    var cssError = {
-        message: 'Error',
-        overlayCSS: {
-            backgroundColor: '#A94442',
-            opacity: 0.5,
-        },
-        css: {
-            border: 'none',
-            padding: '5px',
-            backgroundColor: '#000',
-            '-webkit-border-radius': '5px',
-            '-moz-border-radius': '5px',
-            backgroundColor: '#A94442',
-            opacity: 1,
-            color: '#fff'
-        },
-        baseZ: 900
-    }
-
-    // If warning style overwrite properties
-    if (warning) {
-        cssError.message = 'Hay problemas con este elemento.';
-        cssError.overlayCSS = {
-            backgroundColor: '#FCF8E3',
-            opacity: 0.4,
-        };
-        cssError.css.backgroundColor = '#FCF8E3';
-        cssError.css.color = '#000';
-    }
-
-    return cssError;
-}
-
-// Block the specified element, value is an array of errors, if the array is empty unblock the element.
-function blockError(element, value, warning) {
-    if (value.length) {
-        $(element).block(getBlockerCss(warning));
-    } else {
-        $(element).unblock();
-    }
-}
-
-// Blocks the specified element when the error handler contains errors.
-// Errors with level > 2000
-ko.bindingHandlers.blockOnError = {
-    init: function (element, valueAccessor, allBindings, viewModel, context) {
-        var handler = viewModel.errorHandler;
-        var value = handler.getByLevel(2000, 9999);
-
-        function validate(value) {
-            if ($$.isArray(value)) {
-                blockError(element, value, true);
-            }
-        }
-
-        var subscription = value.subscribe(validate);
-
-        validate(value());
-
-        ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
-            subscription.dispose();
-        });
-    }
-}
-
-// Blocks the specified element when the error handler contains errors or warnings.
-// Errors with level > 2000 block the element with red
-// Errors with level >= 1000 and < 2000 block the element with yellow
-ko.bindingHandlers.blockOnWarning = {
-    init: function (element, valueAccessor, allBindings, viewModel, context) {
-        var handler = viewModel.errorHandler;
-        var value = handler.getByLevel(1000, 9999);
-
-        function validate(value) {
-            if ($$.isArray(value)) {
-                for (var index in value) {
-                    var error = value[index];
-
-                    if (error.level > 2000) {
-                        blockError(element, value);
-                        return;
-                    }
-
-                    if (error.level >= 1000 && error.level < 2000) {
-                        blockError(element, value, true);
-                        return;
-                    }
-                }
-            }
-        }
-
-        var subscription = value.subscribe(validate);
-
-        validate(value());
-
-        ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
-            subscription.dispose();
-        });
-    }
-}
-
-// Blocks the element if the specified error handler contains errors of the specified source
-ko.bindingHandlers.blockOnErrorSource = {
-    init: function (element, valueAccessor, allBindings, viewModel, context) {
-        var source = ko.unwrap(valueAccessor());
-        var handler = viewModel.errorHandler;
-        var value = handler.getBySource(source);
-
-        function validate(value) {
-            if ($$.isArray(value)) {
-                blockError(element, value);
-            }
-        }
-
-        var subscription = value.subscribe(validate);
-
-        validate(value());
-
-        ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
-            subscription.dispose();
-        });
-    }
-}
-
-// Blocks the element if the specified error handler contains errors that fullfills the specified condition
-ko.bindingHandlers.blockOnErrorCondition = {
-    init: function (element, valueAccessor, allBindings, viewModel, context) {
-        var condition = ko.unwrap(valueAccessor);
-        var handler = viewModel.errorHandler;
-        var value = handler.getBy(condition);
-
-        function validate(value) {
-            if ($$.isArray(value)) {
-                blockError(element, value);
-            }
-        }
-
-        var subscription = value.subscribe(validate);
-
-        validate(value());
-
-        ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
-            subscription.dispose();
-        });
-    }
-}
-
 // If configuration object does not exist initialize it
 if (!$$.configuration) {
     $$.configuration = {};
@@ -285,134 +135,73 @@ $$.unformatNumber = function(number, config) {
     return accounting.toFixed(value, config.decimals);
 }
 
-// Create a custom binding to transform the specified observable into money or number format
-function numericTransform(element, valueAccessor, money, bindingName) {
-    var underlyingObservable;
-
-    // Get the specified value
-    var accessor = valueAccessor();
-
-    // Init custom config
-    var config = {};
-
-
-    if ($$.isObject(accessor)) {
-        // If binding to an object we assume { value: <observable>, config: <custom config> }
-        underlyingObservable = accessor.value;
-        config = accessor.config;
-    } else {
-        // If binding is not an object we assume its the value to transform.
-        underlyingObservable = accessor;
-    }
-
-    // If the value is not an observable then wrap it into one
-    if (!ko.isObservable(underlyingObservable)) {
-        underlyingObservable = ko.observable(underlyingObservable);
-    }
-
-    // If we are converting to money combine custom config with money defaults, if not use number defaults.
-    if (money) {
-        config = $.extend({}, $$.configuration.moneyFormat);
-    } else {
-        config = $.extend({}, $$.configuration.numberFormat);
-    }
-
-    // Create an interceptor for the binding
-    var interceptor = ko.pureComputed({
-        read: function () {
-            // If value is defined transform it, if not, return undefined
-            if ($$.isDefined(underlyingObservable())) {
-                if (money) {
-                    return $$.formatMoney(underlyingObservable(), config);
-                } else {
-                    return $$.formatNumber(underlyingObservable(), config);
-                }
-            } else {
-                return undefined;
-            }
-        },
-
-        write: function (newValue) {
-            // Get the current value and the newly formatted value
-            var current = underlyingObservable();
-            var valueToWrite;
-
-            // Get the value to write unformatting
-            if (money) {
-                valueToWrite = $$.unformatMoney(newValue, config.decimals);
-            } else {
-                valueToWrite = $$.unformatNumber(newValue, config.decimals);
-            }
-
-            // If value is not a number write the value as is
-            if (isNaN(valueToWrite)) {
-                valueToWrite = newValue;
-            }
-
-            // Write the value to the observable and notify
-            if (valueToWrite !== current) {
-                underlyingObservable(valueToWrite);
-            } else {
-                if (newValue !== current.toString()) {
-                    underlyingObservable.valueHasMutated();
-                }
-            }
+$$.formatters.numeric = {
+    read: function(value) {
+        if ($$.isObject(value) && $$.isDefined(value.value) && $$.isDefined(value.config)) {
+            return $$.formatNumber(value.value, value.config);
+        } else {
+            return $$.formatNumber(value);
         }
-    });
-
-    // Create a custom accesor and apply bindings
-    var binding = {};
-    binding[bindingName] = interceptor;
-
-    ko.applyBindingsToNode(element, binding);
-}
-
-ko.bindingHandlers.numericValue = {
-    init: function (element, valueAccessor) {
-        numericTransform(element, valueAccessor, false, 'value');
+    },
+    write: function(value) {
+        if ($$.isObject(value) && $$.isDefined(value.value) && $$.isDefined(value.config)) {
+            return $$.unformatNumber(value.value, value.config);
+        } else {
+            return $$.unformatNumber(value);
+        }
     }
 }
 
-ko.bindingHandlers.moneyValue = {
-    init: function (element, valueAccessor) {
-        numericTransform(element, valueAccessor, true, 'value');
+$$.formatters.money = {
+    read: function(value) {
+        if ($$.isObject(value) && $$.isDefined(value.value) && $$.isDefined(value.config)) {
+            return $$.formatMoney(value.value, value.config);
+        } else {
+            return $$.formatMoney(value);
+        }
+    },
+    write: function(value) {
+        if ($$.isObject(value) && $$.isDefined(value.value) && $$.isDefined(value.config)) {
+            return $$.unformatMoney(value.value, value.config);
+        } else {
+            return $$.unformatMoney(value);
+        }
     }
 }
 
-ko.bindingHandlers.numericText = {
-    init: function (element, valueAccessor) {
-        numericTransform(element, valueAccessor, false, 'text');
-    }
-}
-
-ko.bindingHandlers.moneyText = {
-    init: function (element, valueAccessor) {
-        numericTransform(element, valueAccessor, true, 'text');
-    }
-}
-
-// Applies the success style to the element if the specified condition is met. Useful highlight the selected row on a table:
-// <div data-bind="rowSelect: id == $parent.idSeleccionado">
 ko.bindingHandlers.rowSelect = {
-    update: function (element, valueAccessor, allBindingsAccessor, viewModel, context) {
-        var options = ko.unwrap(valueAccessor());
+    update: function (element, valueAccessor, allBindings, viewModel, context) {
+        var value = ko.unwrap(valueAccessor());
+        var selected = allBindings.get('selectedValue');
+        var style = allBindings.get('style');
+
+        if (!ko.isObservable(selected)) {
+            throw new Error('Must specify the selected value as an observable using the selectedValue binding');
+        }
+
+        if (!style) {
+            style = "success";
+        }
 
         var selectedValueAccessor = function () {
-            if ($$.isFunction(options.isSelected)) {
-                return { success: options.isSelected(viewModel) };
+            var bindOptions = {};
+
+            if (value == selected()) {
+                bindOptions[style] = true;
             } else {
-                return { success: options.isSelected };
+                bindOptions[style] = false;
             }
 
+            return { success: bindOptions };
         };
 
-        ko.bindingHandlers.css.update(element, selectedValueAccessor, allBindingsAccessor, viewModel, context);
+        ko.bindingHandlers.css.update(element, selectedValueAccessor, allBindings, viewModel, context);
 
         var clickValueAccessor = function () {
-            return options.select;
+            selected(value);
         };
 
-        ko.bindingHandlers.click.init(element, clickValueAccessor, allBindingsAccessor, viewModel, context);
+        ko.bindingHandlers.click.init(element, clickValueAccessor, allBindings, viewModel, context);
     }
 };
 

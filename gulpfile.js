@@ -26,9 +26,8 @@ gulp.task('quark-utils.require.conf', function () {
 gulp.task('js', function () {
     return gulp.src([
         './src/wrap.start',
-        './src/bindings.js',
+        './src/binding-control.js',
         './src/blocking.js',
-        './src/error-blocking.js',
         './src/numeric.js',
         './src/utils.js',
         './src/wrap.end'
