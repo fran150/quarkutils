@@ -1,0 +1,29 @@
+{
+  "name": "quark-utils",
+  "version": "1.0.0",
+  "authors": [
+    "admin <fllopez@bpba.com.ar>"
+  ],
+  "description": "Extensions with utilities for Quark.js",
+  "moduleType": [
+    "amd"
+  ],
+  "keywords": [
+    "quark"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "accounting.js": "~0.4.1",
+    "blockUI": "*"
+  },
+  "resolutions": {
+    "knockout": "~3.3.0"
+  }
+}

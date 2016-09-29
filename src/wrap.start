@@ -1,0 +1,10 @@
+(function (root, factory) {    
+    if (typeof define === 'function' && define.amd) {
+        // AMD.
+        define(['quark', 'knockout', 'jquery', 'accounting-js', 'blockui'], factory);
+    } else {
+        // Browser globals.
+        root.komapping = ko.mapping;
+        factory(root.$$, root.ko, root.$, root.accounting);
+    }
+}(this, function ($$, ko, $, accounting) {
